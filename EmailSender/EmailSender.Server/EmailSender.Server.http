@@ -1,0 +1,17 @@
+@Server_HostAddress = http://localhost:5524
+
+GET {{Server_HostAddress}}/api/weatherforecast/
+Accept: application/json
+
+###
+
+POST {{Server_HostAddress}}/notify/alarm
+Content-Type: application/json
+
+{
+    "titulo": "Temperatura crítica",
+    "fecha": "2026-06-08T10:00:00",
+    "sensor": "Sensor-01",
+    "ubicacion": "Planta 2",
+    "motivo": "Supera los 80 grados"
+}
