@@ -1,5 +1,7 @@
 using EmailSender.Server.Models;
 using EmailSender.Server.Services;
+using EmailSender.Server;
+using Microsoft.EntityFrameworkCore;
 
 // ─── 1. BUILDER ─────────────────────────────────────────────────────────────
 
@@ -8,13 +10,17 @@ var builder = WebApplication.CreateBuilder(args); // Crea el constructor de la a
 builder.AddServiceDefaults(); // Servicios de Aspire: telemetría, health checks, service discovery
 builder.Services.AddProblemDetails(); // Manejo estándar de errores HTTP (400, 500, etc.)
 builder.Services.AddOpenApi(); // Swagger: interfaz web para probar endpoints en desarrollo
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite("Data Source = EmailSender.db"));
 
 var smtpSettings = builder.Configuration
     .GetSection("SmtpSettings")
     .Get<SmtpSettings>();
-builder.Services.AddSingleton(smtpSettings);
 
+builder.Services.AddSingleton(smtpSettings);
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<QueueService>();
+builder.Services.AddHostedService<EmailBackgroundService>();
 
 
 // ─── 2. BUILD ────────────────────────────────────────────────────────────────
@@ -34,11 +40,11 @@ if (app.Environment.IsDevelopment()) // Expone Swagger solo en entorno de desarr
 // Recibe una alarma via POST y devuelve confirmación
 
 
-app.MapPost("/notify/alarm", async (AlarmDto dto, EmailService emailService) =>
+app.MapPost("/notify/alarm", async (AlarmDto dto, QueueService queueService) =>
 {
     try
     {
-        await emailService.SendAsync(dto);
+        await queueService.EnqueueAsync(dto);
         return Results.Ok($"Alarma recibida: {dto.Titulo}, a fecha {dto.Fecha}\n" +
             $" Ubicación: {dto.Ubicacion}\n" +
             $"Sensor: {dto.Sensor}\n " +
